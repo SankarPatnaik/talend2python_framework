@@ -56,4 +56,30 @@ class Graph:
                     queue.append(e.target)
         if len(order) != len(self.nodes):
             raise ValueError("Graph has cycles or is disconnected.")
+
+        # Ensure the graph is weakly connected.  The simple topological sort
+        # above will happily return an order even if the graph consists of
+        # multiple disconnected components because all nodes start with an
+        # indegree of zero.  This check traverses the graph ignoring edge
+        # direction and verifies that all nodes are reachable from the first
+        # node.  If not, the graph is considered disconnected.
+        if self.nodes:
+            from collections import deque
+
+            start = next(iter(self.nodes))
+            q: deque[str] = deque([start])
+            seen = set()
+            while q:
+                cur = q.popleft()
+                if cur in seen:
+                    continue
+                seen.add(cur)
+                neighbours = [e.target for e in self.edges if e.source == cur]
+                neighbours += [e.source for e in self.edges if e.target == cur]
+                for n in neighbours:
+                    if n not in seen:
+                        q.append(n)
+            if len(seen) != len(self.nodes):
+                raise ValueError("Graph has cycles or is disconnected.")
+
         return order
