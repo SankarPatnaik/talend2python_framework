@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 import pandas as pd
 import zipfile
 import tarfile
+import time
 
 
 @dataclass
@@ -204,3 +205,435 @@ class TRunJob:
     def run(self) -> Any:
         return self.job(*self.args, **self.kwargs)
 
+
+
+
+@dataclass
+class TFileOutputDelimited:
+    """Write a DataFrame to a delimited text file."""
+
+    path: str
+    separator: str = ","
+    header: bool = True
+
+    def write(self, df: pd.DataFrame) -> None:
+        df.to_csv(self.path, sep=self.separator, index=False, header=self.header)
+
+
+@dataclass
+class TFileOutputExcel:
+    """Write a DataFrame to an Excel file."""
+
+    path: str
+    sheet: str = "Sheet1"
+    header: bool = True
+
+    def write(self, df: pd.DataFrame) -> None:
+        df.to_excel(self.path, sheet_name=self.sheet, index=False, header=self.header)
+
+
+@dataclass
+class TOracleConnection:
+    """Simple representation of an Oracle connection."""
+
+    host: str
+    user: str
+    password: str
+    database: str
+    port: int = 1521
+
+    def engine(self):
+        from sqlalchemy import create_engine
+        url = (
+            f"oracle+cx_oracle://{self.user}:{self.password}@{self.host}:{self.port}/"            f"?service_name={self.database}"
+        )
+        return create_engine(url)
+
+
+@dataclass
+class TOracleInput:
+    """Run a query against an Oracle database and return a DataFrame."""
+
+    connection: TOracleConnection
+    query: str
+
+    def read(self) -> pd.DataFrame:
+        engine = self.connection.engine()
+        return pd.read_sql_query(self.query, con=engine)
+
+
+@dataclass
+class TOracleOutput:
+    """Write a DataFrame to an Oracle table."""
+
+    connection: TOracleConnection
+    table: str
+    if_exists: str = "append"
+
+    def write(self, df: pd.DataFrame) -> None:
+        engine = self.connection.engine()
+        df.to_sql(self.table, con=engine, if_exists=self.if_exists, index=False)
+
+
+@dataclass
+class TPostgresqlConnection:
+    """Simple representation of a PostgreSQL connection."""
+
+    host: str
+    user: str
+    password: str
+    database: str
+    port: int = 5432
+
+    def engine(self):
+        from sqlalchemy import create_engine
+        url = (
+            f"postgresql+psycopg2://{self.user}:{self.password}@{self.host}:{self.port}/"            f"{self.database}"
+        )
+        return create_engine(url)
+
+
+@dataclass
+class TPostgresqlInput:
+    """Run a query against a PostgreSQL database and return a DataFrame."""
+
+    connection: TPostgresqlConnection
+    query: str
+
+    def read(self) -> pd.DataFrame:
+        engine = self.connection.engine()
+        return pd.read_sql_query(self.query, con=engine)
+
+
+@dataclass
+class TPostgresqlOutput:
+    """Write a DataFrame to a PostgreSQL table."""
+
+    connection: TPostgresqlConnection
+    table: str
+    if_exists: str = "append"
+
+    def write(self, df: pd.DataFrame) -> None:
+        engine = self.connection.engine()
+        df.to_sql(self.table, con=engine, if_exists=self.if_exists, index=False)
+
+
+@dataclass
+class TMSSqlConnection:
+    """Simple representation of a Microsoft SQL Server connection."""
+
+    host: str
+    user: str
+    password: str
+    database: str
+    port: int = 1433
+
+    def engine(self):
+        from sqlalchemy import create_engine
+        url = (
+            f"mssql+pyodbc://{self.user}:{self.password}@{self.host}:{self.port}/"            f"{self.database}?driver=ODBC+Driver+17+for+SQL+Server"
+        )
+        return create_engine(url)
+
+
+@dataclass
+class TMSSqlInput:
+    """Run a query against an MSSQL database and return a DataFrame."""
+
+    connection: TMSSqlConnection
+    query: str
+
+    def read(self) -> pd.DataFrame:
+        engine = self.connection.engine()
+        return pd.read_sql_query(self.query, con=engine)
+
+
+@dataclass
+class TMSSqlOutput:
+    """Write a DataFrame to an MSSQL table."""
+
+    connection: TMSSqlConnection
+    table: str
+    if_exists: str = "append"
+
+    def write(self, df: pd.DataFrame) -> None:
+        engine = self.connection.engine()
+        df.to_sql(self.table, con=engine, if_exists=self.if_exists, index=False)
+
+
+@dataclass
+class TDB2Connection:
+    """Simple representation of a DB2 connection."""
+
+    host: str
+    user: str
+    password: str
+    database: str
+    port: int = 50000
+
+    def engine(self):
+        from sqlalchemy import create_engine
+        url = (
+            f"ibm_db_sa://{self.user}:{self.password}@{self.host}:{self.port}/"            f"{self.database}"
+        )
+        return create_engine(url)
+
+
+@dataclass
+class TDB2Input:
+    """Run a query against a DB2 database and return a DataFrame."""
+
+    connection: TDB2Connection
+    query: str
+
+    def read(self) -> pd.DataFrame:
+        engine = self.connection.engine()
+        return pd.read_sql_query(self.query, con=engine)
+
+
+@dataclass
+class TDB2Output:
+    """Write a DataFrame to a DB2 table."""
+
+    connection: TDB2Connection
+    table: str
+    if_exists: str = "append"
+
+    def write(self, df: pd.DataFrame) -> None:
+        engine = self.connection.engine()
+        df.to_sql(self.table, con=engine, if_exists=self.if_exists, index=False)
+
+
+@dataclass
+class TExtractDelimitedFields:
+    """Extract fields from a delimited string column."""
+
+    column: str
+    separator: str
+    new_columns: List[str]
+
+    def apply(self, df: pd.DataFrame) -> pd.DataFrame:
+        parts = df[self.column].str.split(self.separator, expand=True)
+        for i, col in enumerate(self.new_columns):
+            df[col] = parts[i]
+        return df
+
+
+@dataclass
+class TAggregateRow:
+    """Aggregate data based on specified columns."""
+
+    group_by: List[str]
+    aggregations: Dict[str, Any]
+
+    def apply(self, df: pd.DataFrame) -> pd.DataFrame:
+        return df.groupby(self.group_by).agg(self.aggregations).reset_index()
+
+
+@dataclass
+class TFlowMeter:
+    """Monitor data flow rate and volume."""
+
+    count: int = 0
+    start_time: float = field(default_factory=time.time)
+
+    def measure(self, df: pd.DataFrame) -> pd.DataFrame:
+        self.count += len(df)
+        return df
+
+    def stats(self) -> Dict[str, float]:
+        elapsed = time.time() - self.start_time
+        rate = self.count / elapsed if elapsed > 0 else 0.0
+        return {"rows": self.count, "elapsed": elapsed, "rows_per_sec": rate}
+
+
+@dataclass
+class TPostJob:
+    """Run a list of callables after the main job."""
+
+    tasks: List[Callable[[], Any]]
+
+    def run(self) -> None:
+        for task in self.tasks:
+            task()
+
+
+@dataclass
+class TStatCatcher:
+    """Collect job execution statistics."""
+
+    start_time: float = field(default_factory=time.time)
+    end_time: Optional[float] = None
+    rows: int = 0
+
+    def add_rows(self, n: int) -> None:
+        self.rows += n
+
+    def stop(self) -> None:
+        self.end_time = time.time()
+
+    def stats(self) -> Dict[str, Any]:
+        end = self.end_time if self.end_time is not None else time.time()
+        duration = end - self.start_time
+        return {
+            "rows": self.rows,
+            "start_time": self.start_time,
+            "end_time": end,
+            "duration": duration,
+        }
+
+
+@dataclass
+class TGroovy:
+    """Execute a snippet of Python code in place of Groovy."""
+
+    code: str
+
+    def run(self, context: Optional[Dict[str, Any]] = None) -> None:
+        exec(self.code, {}, context if context is not None else {})
+
+
+@dataclass
+class TJavaFlex:
+    """Execute start, main, and end code blocks."""
+
+    start_code: str = ""
+    main_code: str = ""
+    end_code: str = ""
+
+    def run(self, df: pd.DataFrame, context: Optional[Dict[str, Any]] = None) -> pd.DataFrame:
+        ctx: Dict[str, Any] = {} if context is None else context
+        if self.start_code:
+            exec(self.start_code, {}, ctx)
+        if self.main_code:
+            for _, row in df.iterrows():
+                ctx["row"] = row
+                exec(self.main_code, {}, ctx)
+        if self.end_code:
+            exec(self.end_code, {}, ctx)
+        return df
+
+
+@dataclass
+class TSetGlobalVar:
+    """Set a variable in a context dictionary."""
+
+    key: str
+    value: Any
+
+    def set(self, context: Dict[str, Any]) -> None:
+        context[self.key] = self.value
+
+
+@dataclass
+class TDataprepRun:
+    """Apply a Talend-like data preparation function."""
+
+    prep: Callable[[pd.DataFrame], pd.DataFrame]
+
+    def run(self, df: pd.DataFrame) -> pd.DataFrame:
+        return self.prep(df)
+
+
+@dataclass
+class TBigtableConnection:
+    """Connection information for Google Bigtable."""
+
+    project: str
+    instance: str
+
+    def instance_client(self):
+        from google.cloud import bigtable
+
+        client = bigtable.Client(project=self.project, admin=True)
+        return client.instance(self.instance)
+
+
+@dataclass
+class TBigtableInput:
+    """Read rows from a Bigtable table."""
+
+    connection: TBigtableConnection
+    table: str
+
+    def read(self):
+        instance = self.connection.instance_client()
+        table = instance.table(self.table)
+        rows = table.read_rows()
+        return [row for row in rows]
+
+
+@dataclass
+class TBigtableOutput:
+    """Write rows to a Bigtable table."""
+
+    connection: TBigtableConnection
+    table: str
+
+    def write(self, rows: Dict[bytes, Dict[bytes, Dict[bytes, bytes]]]) -> None:
+        instance = self.connection.instance_client()
+        table = instance.table(self.table)
+        for key, families in rows.items():
+            row = table.direct_row(key)
+            for family, columns in families.items():
+                for column, value in columns.items():
+                    row.set_cell(family, column, value)
+            row.commit()
+
+
+@dataclass
+class TGoogleDriveConnection:
+    """Connection wrapper for Google Drive."""
+
+    credentials: Any
+
+    def service(self):
+        from googleapiclient.discovery import build
+
+        return build("drive", "v3", credentials=self.credentials)
+
+
+@dataclass
+class TGoogleDriveUpload:
+    """Upload a file to Google Drive."""
+
+    connection: TGoogleDriveConnection
+    filepath: str
+    mimetype: str
+    parent_id: Optional[str] = None
+
+    def upload(self) -> Dict[str, Any]:
+        service = self.connection.service()
+        from googleapiclient.http import MediaFileUpload
+
+        file_metadata = {"name": Path(self.filepath).name}
+        if self.parent_id:
+            file_metadata["parents"] = [self.parent_id]
+        media = MediaFileUpload(self.filepath, mimetype=self.mimetype)
+        file = (
+            service.files()
+            .create(body=file_metadata, media_body=media, fields="id")
+            .execute()
+        )
+        return file
+
+
+@dataclass
+class TGoogleDriveDownload:
+    """Download a file from Google Drive."""
+
+    connection: TGoogleDriveConnection
+    file_id: str
+    dest_path: str
+
+    def download(self) -> None:
+        service = self.connection.service()
+        request = service.files().get_media(fileId=self.file_id)
+        from googleapiclient.http import MediaIoBaseDownload
+        import io as _io
+
+        with open(self.dest_path, "wb") as fh:
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
