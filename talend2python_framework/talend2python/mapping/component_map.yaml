@@ -29,3 +29,60 @@ tFileOutputDelimited:
         path_key: "file_path"
         header_key: "header"
         sep_key: "separator"
+
+# Database components
+TMysqlConnection:
+      action: mysql_connect
+      params:
+        host_key: "host"
+        port_key: "port"
+        user_key: "user"
+        password_key: "password"
+        database_key: "database"
+TMysqlInput:
+      action: mysql_read
+      params:
+        query_key: "query"
+TMysqlOutput:
+      action: mysql_write
+      params:
+        table_key: "table"
+        mode_key: "if_exists"
+# File components
+TFileInputExcel:
+      action: read_excel
+      params:
+        path_key: "file_path"
+        sheet_key: "sheet"
+        header_key: "header"
+TFileList:
+      action: list_files
+      params:
+        dir_key: "directory"
+        pattern_key: "pattern"
+TFileArchive:
+      action: archive
+      params:
+        files_key: "files"
+        archive_path_key: "archive_path"
+        format_key: "format"
+TRowGenerator:
+      action: generate_rows
+      params:
+        schema_key: "schema"
+        num_rows_key: "num_rows"
+TMsgBox:
+      action: msg_box
+      params:
+        message_key: "message"
+# Flow control components
+TPreJob:
+      action: pre_job
+TJava:
+      action: python_exec
+      params:
+        code_key: "code"
+TRunJob:
+      action: run_job
+      params:
+        job_key: "job"
