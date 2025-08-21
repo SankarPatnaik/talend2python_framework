@@ -1,0 +1,22 @@
+tFileInputDelimited:
+  action: read_csv
+  params:
+    path_key: "file_path"
+    header_key: "header"
+    sep_key: "separator"
+tFilterRow:
+  action: filter
+  params:
+    expr_key: "filter_expr"
+tMap:
+  action: select_rename
+  params:
+    mapping_key: "mapping"
+tLogRow:
+  action: log
+tFileOutputDelimited:
+  action: write_csv
+  params:
+    path_key: "file_path"
+    header_key: "header"
+    sep_key: "separator"

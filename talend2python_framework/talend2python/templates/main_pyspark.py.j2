@@ -1,0 +1,58 @@
+import argparse
+import json
+from pyspark.sql import SparkSession
+from pyspark.sql.functions import expr, col
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--input_csv", required=False)
+    p.add_argument("--output_csv", required=False)
+    return p.parse_args()
+
+def main():
+    args = parse_args()
+    spark = SparkSession.builder.appName("talend2python").getOrCreate()
+    df_map = {}
+    last_df = None
+    {% for s in steps %}
+    # Node: {{s.name}} ({{s.type}})
+    {% if s.type == "tFileInputDelimited" %}
+    path = args.input_csv or "{{ s.config.get("file_path", "") }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    sep = "{{ s.config.get("separator", ",") }}"
+    df = spark.read.option("header", header).option("inferSchema", True).option("sep", sep).csv(path)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tFilterRow" %}
+    expr_str = '{{ s.config.get("filter_expr", "true") }}'
+    df = last_df.filter(expr(expr_str))
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tMap" %}
+    mapping = json.loads('{{ s.config.get("mapping", "{}") }}')
+    selects = []
+    for new_col, expr_str in mapping.items():
+        if expr_str == "__keep__":
+            selects.append(col(new_col))
+        else:
+            selects.append(expr(expr_str).alias(new_col))
+    df = last_df.select(*selects)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tLogRow" %}
+    last_df.show(10, truncate=False)
+    df_map["{{s.id}}"] = last_df
+    {% elif s.type == "tFileOutputDelimited" %}
+    out_path = args.output_csv or "{{ s.config.get("file_path", "output.csv") }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    sep = "{{ s.config.get("separator", ",") }}"
+    last_df.coalesce(1).write.mode("overwrite").option("header", header).option("sep", sep).csv(out_path)
+    df_map["{{s.id}}"] = last_df
+    {% else %}
+    df_map["{{s.id}}"] = last_df
+    {% endif %}
+    {% endfor %}
+    spark.stop()
+
+if __name__ == "__main__":
+    main()

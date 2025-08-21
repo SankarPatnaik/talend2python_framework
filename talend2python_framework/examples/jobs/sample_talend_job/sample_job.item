@@ -1,0 +1,35 @@
+<talendJob name="SampleJob">
+  <components>
+    <component id="n1" type="tFileInputDelimited" name="InputCSV">
+      <config>
+        <param name="file_path" value="data/input.csv"/>
+        <param name="header" value="true"/>
+        <param name="separator" value=","/>
+      </config>
+    </component>
+    <component id="n2" type="tFilterRow" name="Filter">
+      <config>
+        <param name="filter_expr" value="age > 18"/>
+      </config>
+    </component>
+    <component id="n3" type="tMap" name="SelectRename">
+      <config>
+        <param name="mapping" value='{"name":"__keep__","age":"__keep__","age_plus_1":"age + 1"}'/>
+      </config>
+    </component>
+    <component id="n4" type="tLogRow" name="Preview"/>
+    <component id="n5" type="tFileOutputDelimited" name="OutputCSV">
+      <config>
+        <param name="file_path" value="build/output.csv"/>
+        <param name="header" value="true"/>
+        <param name="separator" value=","/>
+      </config>
+    </component>
+  </components>
+  <connections>
+    <connection source="n1" target="n2"/>
+    <connection source="n2" target="n3"/>
+    <connection source="n3" target="n4"/>
+    <connection source="n3" target="n5"/>
+  </connections>
+</talendJob>

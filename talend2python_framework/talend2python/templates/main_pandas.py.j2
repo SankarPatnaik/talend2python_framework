@@ -1,0 +1,54 @@
+import argparse
+import json
+import pandas as pd
+
+def parse_args():
+    p = argparse.ArgumentParser()
+    p.add_argument("--input_csv", required=False)
+    p.add_argument("--output_csv", required=False)
+    return p.parse_args()
+
+def main():
+    args = parse_args()
+    df_map = {}
+    last_df = None
+    {% for s in steps %}
+    # Node: {{s.name}} ({{s.type}})
+    {% if s.type == "tFileInputDelimited" %}
+    path = args.input_csv or "{{ s.config.get("file_path", "") }}"
+    sep = "{{ s.config.get("separator", ",") }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    df = pd.read_csv(path, sep=sep, header=0 if header else None)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tFilterRow" %}
+    expr_str = '{{ s.config.get("filter_expr", "True") }}'
+    df = last_df.query(expr_str)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tMap" %}
+    mapping = json.loads('{{ s.config.get("mapping", "{}") }}')
+    df = pd.DataFrame()
+    for new_col, expr_str in mapping.items():
+        if expr_str == "__keep__":
+            df[new_col] = last_df[new_col]
+        else:
+            df[new_col] = last_df.eval(expr_str)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tLogRow" %}
+    print(last_df.head(10).to_string())
+    df_map["{{s.id}}"] = last_df
+    {% elif s.type == "tFileOutputDelimited" %}
+    out_path = args.output_csv or "{{ s.config.get("file_path", "output.csv") }}"
+    sep = "{{ s.config.get("separator", ",") }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    last_df.to_csv(out_path, index=False, sep=sep, header=header)
+    df_map["{{s.id}}"] = last_df
+    {% else %}
+    df_map["{{s.id}}"] = last_df
+    {% endif %}
+    {% endfor %}
+
+if __name__ == "__main__":
+    main()
