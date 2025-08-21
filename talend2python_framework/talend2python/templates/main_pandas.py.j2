@@ -2,15 +2,20 @@ import argparse
 import json
 import pandas as pd
 
+
 def parse_args():
     p = argparse.ArgumentParser()
+    # Allow overriding of input and output file paths via command line.  When
+    # generating from a Talend job these values will default to those
+    # specified in the job configuration.
     p.add_argument("--input_csv", required=False)
     p.add_argument("--output_csv", required=False)
     return p.parse_args()
 
+
 def main():
     args = parse_args()
-    df_map = {}
+    df_map = {}  # holds intermediate DataFrames keyed by node id
     last_df = None
     {% for s in steps %}
     # Node: {{s.name}} ({{s.type}})
@@ -22,33 +27,59 @@ def main():
     df_map["{{s.id}}"] = df
     last_df = df
     {% elif s.type == "tFilterRow" %}
+    # Apply a row level filter using pandas' query method.  The expression
+    # string should be valid Python/pandas syntax referencing column names.
     expr_str = '{{ s.config.get("filter_expr", "True") }}'
     df = last_df.query(expr_str)
     df_map["{{s.id}}"] = df
     last_df = df
     {% elif s.type == "tMap" %}
+    # Select and/or compute new columns.  A JSON mapping is provided where
+    # keys are output column names and values are either '__keep__', '__copy__'
+    # (to preserve the existing column) or an expression to evaluate.
     mapping = json.loads('{{ s.config.get("mapping", "{}") }}')
     df = pd.DataFrame()
     for new_col, expr_str in mapping.items():
-        if expr_str == "__keep__":
+        if expr_str in ["__keep__", "__copy__"]:
             df[new_col] = last_df[new_col]
         else:
+            # Use pandas.eval to compute the expression in the context of the
+            # existing DataFrame.  This allows simple arithmetic and column
+            # references (e.g. 'age + 1').
             df[new_col] = last_df.eval(expr_str)
     df_map["{{s.id}}"] = df
     last_df = df
+    {% elif s.type == "tJoin" %}
+    # Join two upstream DataFrames.  Inputs are ordered according to the
+    # connections defined in the Talend job.  join_type defaults to 'inner'.
+    left_df = df_map["{{ s.inputs[0] }}"]
+    right_df = df_map["{{ s.inputs[1] }}"]
+    left_on = "{{ s.config.get("left_on", "") }}"
+    right_on = "{{ s.config.get("right_on", "") }}"
+    join_type = "{{ s.config.get("join_type", "inner") }}"
+    df = left_df.merge(right_df, how=join_type, left_on=left_on, right_on=right_on)
+    df_map["{{s.id}}"] = df
+    last_df = df
     {% elif s.type == "tLogRow" %}
+    # Print the first few rows of the current DataFrame.  to_string() is used
+    # to avoid truncation of wide columns.
     print(last_df.head(10).to_string())
     df_map["{{s.id}}"] = last_df
     {% elif s.type == "tFileOutputDelimited" %}
+    # Write the DataFrame to a CSV file.  Coerce header and separator
+    # parameters to proper boolean and string values.
     out_path = args.output_csv or "{{ s.config.get("file_path", "output.csv") }}"
     sep = "{{ s.config.get("separator", ",") }}"
     header = "{{ s.config.get("header", "true") }}".lower() == "true"
     last_df.to_csv(out_path, index=False, sep=sep, header=header)
     df_map["{{s.id}}"] = last_df
     {% else %}
+    # For components that don't perform any transformation (or are not yet
+    # supported) simply propagate the last DataFrame.
     df_map["{{s.id}}"] = last_df
     {% endif %}
     {% endfor %}
+
 
 if __name__ == "__main__":
     main()

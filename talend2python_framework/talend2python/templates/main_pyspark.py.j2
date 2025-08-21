@@ -3,11 +3,15 @@ import json
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import expr, col
 
+
 def parse_args():
     p = argparse.ArgumentParser()
+    # Allow optional overrides of input and output paths.  When not
+    # specified, defaults from the Talend job configuration are used.
     p.add_argument("--input_csv", required=False)
     p.add_argument("--output_csv", required=False)
     return p.parse_args()
+
 
 def main():
     args = parse_args()
@@ -32,11 +36,24 @@ def main():
     mapping = json.loads('{{ s.config.get("mapping", "{}") }}')
     selects = []
     for new_col, expr_str in mapping.items():
-        if expr_str == "__keep__":
+        if expr_str in ["__keep__", "__copy__"]:
             selects.append(col(new_col))
         else:
+            # Use Spark SQL expr to evaluate the expression string.  This allows
+            # column arithmetic and function calls recognized by Spark.
             selects.append(expr(expr_str).alias(new_col))
     df = last_df.select(*selects)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tJoin" %}
+    # Join two upstream DataFrames using Spark's join API.  The join type
+    # defaults to inner if not specified.
+    left_df = df_map["{{ s.inputs[0] }}"]
+    right_df = df_map["{{ s.inputs[1] }}"]
+    left_on = "{{ s.config.get("left_on", "") }}"
+    right_on = "{{ s.config.get("right_on", "") }}"
+    join_type = "{{ s.config.get("join_type", "inner") }}"
+    df = left_df.join(right_df, left_df[left_on] == right_df[right_on], how=join_type)
     df_map["{{s.id}}"] = df
     last_df = df
     {% elif s.type == "tLogRow" %}
@@ -53,6 +70,7 @@ def main():
     {% endif %}
     {% endfor %}
     spark.stop()
+
 
 if __name__ == "__main__":
     main()

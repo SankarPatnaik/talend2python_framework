@@ -1,22 +1,31 @@
 tFileInputDelimited:
-  action: read_csv
-  params:
-    path_key: "file_path"
-    header_key: "header"
-    sep_key: "separator"
+      action: read_csv
+      params:
+        path_key: "file_path"
+        header_key: "header"
+        sep_key: "separator"
 tFilterRow:
-  action: filter
-  params:
-    expr_key: "filter_expr"
+      action: filter
+      params:
+        expr_key: "filter_expr"
 tMap:
-  action: select_rename
-  params:
-    mapping_key: "mapping"
+      action: select_rename
+      params:
+        mapping_key: "mapping"
+tJoin:
+      # New component for joining two dataframes.
+      # left_on_key and right_on_key identify the column names used for the join
+      # join_type_key specifies the type of join (inner, left, right, outer)
+      action: join
+      params:
+        left_on_key: "left_on"
+        right_on_key: "right_on"
+        join_type_key: "join_type"
 tLogRow:
-  action: log
+      action: log
 tFileOutputDelimited:
-  action: write_csv
-  params:
-    path_key: "file_path"
-    header_key: "header"
-    sep_key: "separator"
+      action: write_csv
+      params:
+        path_key: "file_path"
+        header_key: "header"
+        sep_key: "separator"

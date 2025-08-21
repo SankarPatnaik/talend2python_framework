@@ -1,7 +1,17 @@
+"""
+Command line interface for talend2python.
+
+This script exposes a ``convert`` subcommand that accepts a Talend .item file
+and generates equivalent Python or PySpark code.  It utilises the
+``parse_talend_item`` function to build an IR graph and then delegates to
+either the pandas or PySpark generator based on the ``--engine`` option.
+"""
+
 import argparse
 import pathlib
 from .parsers.talend_xml_parser import parse_talend_item
 from .generators import pyspark_generator, pandas_generator
+
 
 def main():
     p = argparse.ArgumentParser(prog="talend2py", description="Convert Talend .item to Python ETL code")
