@@ -33,12 +33,21 @@ def parse_talend_item(source: Union[str, Path]) -> Graph:
 
     # Create nodes
     for comp in root.findall(".//component"):
-        # Talend components often have an internal id and a user facing name.
-        # Connections may reference either, so keep the id as the primary key
-        # but record the display name for later resolution.
-        nid = comp.get("id") or comp.get("name")
-        ntype = comp.get("type")
-        name = comp.get("name", ntype)
+        # Talend components expose several identifying attributes depending on
+        # how the job XML was produced.  Real jobs often omit an explicit ``id``
+        # and instead rely on a human readable ``label`` such as
+        # ``tMap_1``/``tMap_2`` while the ``name`` attribute only describes the
+        # component type (e.g. ``tMap``).  If we keyed nodes only by ``name`` we
+        # would collapse multiple components with the same type and later fail
+        # to resolve connections.  Prefer ``id`` when present, fall back to the
+        # unique ``label`` and finally to ``name``.
+        nid = comp.get("id") or comp.get("label") or comp.get("name")
+        # ``type`` is used in the simplified example jobs but real Talend items
+        # may use ``componentName`` instead.
+        ntype = comp.get("type") or comp.get("componentName")
+        # Preserve a display name for later lookups; again prefer ``label``
+        # because it tends to be unique.
+        name = comp.get("label") or comp.get("name", ntype)
         cfg = {}
         for c in comp.findall("./config/param"):
             k = c.get("name")
