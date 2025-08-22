@@ -17,5 +17,5 @@ dependencies = [
 [project.scripts]
 talend2py = "talend2python.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["talend2python"]
+[tool.setuptools]
+packages = ["talend2python"]

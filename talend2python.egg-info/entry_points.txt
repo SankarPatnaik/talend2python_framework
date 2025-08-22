@@ -1,0 +1,2 @@
+[console_scripts]
+talend2py = talend2python.cli:main

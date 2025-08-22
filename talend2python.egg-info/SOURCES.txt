@@ -1,0 +1,11 @@
+README.md
+pyproject.toml
+setup.cfg
+talend2python/__init__.py
+talend2python/cli.py
+talend2python.egg-info/PKG-INFO
+talend2python.egg-info/SOURCES.txt
+talend2python.egg-info/dependency_links.txt
+talend2python.egg-info/entry_points.txt
+talend2python.egg-info/requires.txt
+talend2python.egg-info/top_level.txt
