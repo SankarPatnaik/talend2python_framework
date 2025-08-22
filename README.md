@@ -21,14 +21,14 @@ You can add more components by extending `mapping/component_map.yaml` and genera
 pip install -e .
 
 # 2) Convert a Talend job to PySpark code
-talend2py convert --input examples/jobs/sample_talend_job/sample_job.item --out build/sample_job --engine pyspark
+talend2py convert --input talend2python_framework/examples/jobs/sample_talend_job/sample_job.item --out build/sample_job --engine pyspark
 
 # 3) Run the generated PySpark job (requires pyspark)
-python build/sample_job/main.py --input_csv data/input.csv --output_csv build/output.csv
+python build/sample_job/main.py --input_csv talend2python_framework/data/input.csv --output_csv build/output.csv
 
 # 4) Or generate Pandas job
-talend2py convert --input examples/jobs/sample_talend_job/sample_job.item --out build/sample_job_pandas --engine pandas
-python build/sample_job_pandas/main.py --input_csv data/input.csv --output_csv build/output.csv
+talend2py convert --input talend2python_framework/examples/jobs/sample_talend_job/sample_job.item --out build/sample_job_pandas --engine pandas
+python build/sample_job_pandas/main.py --input_csv talend2python_framework/data/input.csv --output_csv build/output.csv
 ```
 
 ## CLI
@@ -57,9 +57,8 @@ talend2python/
   runtime/
       io.py
       utils.py
-examples/jobs/sample_talend_job/sample_job.item
-tests/
-.github/workflows/ci.yml
+talend2python_framework/examples/jobs/sample_talend_job/sample_job.item
+talend2python_framework/tests/
 ```
 
 ## CI
@@ -70,7 +69,7 @@ tests/
 
 - Add Talend component mapping to `mapping/component_map.yaml`
 - Update generators to emit code blocks for new nodes
-- Add tests in `tests/`
+- Add tests in `talend2python_framework/tests/`
 
 ## License
 
