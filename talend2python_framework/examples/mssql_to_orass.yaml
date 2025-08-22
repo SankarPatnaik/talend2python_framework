@@ -1,0 +1,12 @@
+# Example configuration for migrating data from MSSQL to ORASS (Oracle)
+source:
+  url: mssql+pyodbc://user:password@server/database?driver=ODBC+Driver+17+for+SQL+Server
+
+target:
+  url: oracle+cx_oracle://user:password@host:1521/?service_name=ORASS
+
+tables:
+  - source: dbo.table1
+    target: table1
+  - source: dbo.table2
+    target: table2
