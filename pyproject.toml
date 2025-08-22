@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "talend2python"
 version = "0.1.0"
 description = "Convert Talend jobs (.item) to Python ETL (PySpark/Pandas)"
-authors = [{name = "Sankar + Co", email = "[email protected]"}]
+authors = [{name = "Sankar + Co", email = "sankar@example.com"}]
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
