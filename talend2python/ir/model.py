@@ -43,6 +43,10 @@ class Graph:
         """
         indeg = {n: 0 for n in self.nodes}
         for e in self.edges:
+            if e.source not in indeg or e.target not in indeg:
+                raise ValueError(
+                    f"Edge references unknown node: {e.source!r} -> {e.target!r}"
+                )
             indeg[e.target] += 1
         queue = [n for n, d in indeg.items() if d == 0]
         order: List[Node] = []

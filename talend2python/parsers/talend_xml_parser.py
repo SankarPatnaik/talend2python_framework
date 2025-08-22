@@ -20,7 +20,10 @@ def parse_talend_item(path: str) -> Graph:
 
     # Create nodes
     for comp in root.findall(".//component"):
-        nid = comp.get("id")
+        # Talend components often have an internal id and a user facing name.
+        # Connections may reference either, so keep the id as the primary key
+        # but record the display name for later resolution.
+        nid = comp.get("id") or comp.get("name")
         ntype = comp.get("type")
         name = comp.get("name", ntype)
         cfg = {}
@@ -30,10 +33,19 @@ def parse_talend_item(path: str) -> Graph:
             cfg[k] = v
         g.nodes[nid] = Node(id=nid, type=ntype, name=name, config=cfg)
 
-    # Create edges
+    # Map component display names to their ids for resolving connections
+    name_to_id = {n.name: n.id for n in g.nodes.values()}
+
+    # Create edges, resolving names to ids when necessary
     for conn in root.findall(".//connection"):
         src = conn.get("source")
         tgt = conn.get("target")
-        g.edges.append(Edge(source=src, target=tgt))
+        src_id = src if src in g.nodes else name_to_id.get(src)
+        tgt_id = tgt if tgt in g.nodes else name_to_id.get(tgt)
+        if src_id is None or tgt_id is None:
+            raise ValueError(
+                f"Connection references unknown nodes: {src!r} -> {tgt!r}"
+            )
+        g.edges.append(Edge(source=src_id, target=tgt_id))
 
     return g
