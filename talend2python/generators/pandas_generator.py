@@ -49,7 +49,7 @@ def generate(graph, out_dir):
     # which other dataframes should be available when rendering code for that
     # node.  Nodes with no inputs (e.g. file inputs) will have an empty list.
     steps = []
-    for node in graph.topological_order():
+    for node in graph.topological_order(require_connected=False):
         cfg = node.config or {}
         inputs = [edge.source for edge in graph.edges if edge.target == node.id]
         steps.append(
