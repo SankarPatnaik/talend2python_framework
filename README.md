@@ -34,7 +34,7 @@ python build/sample_job_pandas/main.py --input_csv talend2python_framework/data/
 ## CLI
 
 ```
-talend2py convert --input <path to .item> --out <dir> --engine [pyspark|pandas]
+talend2py convert (--input <path to .item> | --xml "<job xml>") --out <dir> --engine [pyspark|pandas]
 ```
 
 ## Project layout
