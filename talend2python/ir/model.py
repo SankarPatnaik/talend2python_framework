@@ -33,13 +33,22 @@ class Graph:
     nodes: Dict[str, Node] = field(default_factory=dict)
     edges: List[Edge] = field(default_factory=list)
 
-    def topological_order(self) -> List[Node]:
+    def topological_order(self, require_connected: bool = True) -> List[Node]:
         """Return nodes in a topological order.
+
+        Parameters
+        ----------
+        require_connected:
+            When ``True`` (the default), the graph is required to be weakly
+            connected and a :class:`ValueError` is raised otherwise.  When set
+            to ``False`` the connectivity check is skipped and nodes from all
+            disconnected components are returned.
 
         This simple Kahn's algorithm implementation collects nodes with zero
         incoming edges, processes them and enqueues any neighbours whose
-        indegree drops to zero.  If there are cycles or disconnected nodes,
-        a ValueError is raised.
+        indegree drops to zero.  If there are cycles a ``ValueError`` is
+        raised.  When ``require_connected`` is ``True`` an additional
+        breadth‑first search ensures that all nodes are reachable.
         """
         indeg = {n: 0 for n in self.nodes}
         for e in self.edges:
@@ -61,13 +70,14 @@ class Graph:
         if len(order) != len(self.nodes):
             raise ValueError("Graph has cycles")
 
-        # Ensure the graph is weakly connected.  The simple topological sort
-        # above will happily return an order even if the graph consists of
-        # multiple disconnected components because all nodes start with an
-        # indegree of zero.  This check traverses the graph ignoring edge
-        # direction and verifies that all nodes are reachable from the first
-        # node.  If not, the graph is considered disconnected.
-        if self.nodes:
+        # Ensure the graph is weakly connected if requested.  The simple
+        # topological sort above will happily return an order even if the graph
+        # consists of multiple disconnected components because all nodes start
+        # with an indegree of zero.  When ``require_connected`` is ``True`` we
+        # traverse the graph ignoring edge direction and verify that all nodes
+        # are reachable from the first node.  If not, the graph is considered
+        # disconnected.
+        if require_connected and self.nodes:
             from collections import deque
 
             start = next(iter(self.nodes))

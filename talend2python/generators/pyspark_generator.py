@@ -43,7 +43,7 @@ def generate(graph, out_dir):
     # implementation in the pandas generator but returns a PySpark specific
     # template.
     steps = []
-    for node in graph.topological_order():
+    for node in graph.topological_order(require_connected=False):
         cfg = node.config or {}
         inputs = [edge.source for edge in graph.edges if edge.target == node.id]
         steps.append(
