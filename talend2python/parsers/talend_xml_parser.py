@@ -16,6 +16,15 @@ from lxml import etree
 from ..ir.model import Edge, Graph, Node
 
 
+# Mapping of elementParameter names used by Talend to the keys expected in
+# the Node configuration dictionaries used throughout this project.
+_KEY_MAP = {
+    "FILENAME": "file_path",
+    "FIELDSEPARATOR": "separator",
+    "HEADER": "header",
+}
+
+
 def parse_talend_item(source: Union[str, Path]) -> Graph:
     """Parse a Talend job definition and return a ``Graph`` representation.
 
@@ -31,13 +40,19 @@ def parse_talend_item(source: Union[str, Path]) -> Graph:
         root = etree.fromstring(str(source))
     g = Graph()
 
-    # Create nodes
+    # Create nodes from both legacy <component> elements and modern <node>
+    # elements.  Older sample jobs bundled with this repository use
+    # ``<component>`` while real Talend jobs found in the wild typically use
+    # ``<node>`` with nested ``<elementParameter>`` children.  Support both in
+    # order to handle a wide range of job definitions.
+
+    # First parse any <component> elements.
     for comp in root.findall(".//component"):
         # Talend components expose several identifying attributes depending on
         # how the job XML was produced.  Real jobs often omit an explicit ``id``
         # and instead rely on a human readable ``label`` such as
         # ``tMap_1``/``tMap_2`` while the ``name`` attribute only describes the
-        # component type (e.g. ``tMap``).  If we keyed nodes only by ``name`` we
+        # component type (e.g. ``tMap").  If we keyed nodes only by ``name`` we
         # would collapse multiple components with the same type and later fail
         # to resolve connections.  Prefer ``id`` when present, fall back to the
         # unique ``label`` and finally to ``name``.
@@ -53,6 +68,28 @@ def parse_talend_item(source: Union[str, Path]) -> Graph:
             k = c.get("name")
             v = c.get("value")
             cfg[k] = v
+        g.nodes[nid] = Node(id=nid, type=ntype, name=name, config=cfg)
+
+    # Next parse <node> elements used by more recent Talend versions.  These
+    # store most of their metadata inside ``<elementParameter>`` children.
+    for node in root.findall(".//node"):
+        unique = node.find("./elementParameter[@name='UNIQUE_NAME']")
+        if unique is None:
+            # Without a unique name we cannot address the node, so skip it.
+            continue
+        nid = unique.get("value")
+        ntype = node.get("componentName")
+
+        label = node.find("./elementParameter[@name='LABEL']")
+        name = label.get("value") if label is not None else nid
+
+        cfg = {}
+        for p in node.findall("./elementParameter[@value]"):
+            key = p.get("name")
+            val = p.get("value")
+            key = _KEY_MAP.get(key, key)
+            cfg[key] = val
+
         g.nodes[nid] = Node(id=nid, type=ntype, name=name, config=cfg)
 
     # Map component display names to their ids for resolving connections
