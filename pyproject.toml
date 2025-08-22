@@ -11,11 +11,14 @@ readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
   "jinja2>=3.1.3",
-  "lxml>=5.2.1"
+  "lxml>=5.2.1",
+  "pyyaml>=6.0",
+  "sqlalchemy>=2.0"
 ]
 
 [project.scripts]
 talend2py = "talend2python.cli:main"
+db-migrate = "db_migration.cli:main"
 
 [tool.setuptools]
-packages = ["talend2python"]
+packages = ["talend2python", "db_migration"]

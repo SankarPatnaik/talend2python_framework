@@ -71,6 +71,19 @@ talend2python_framework/tests/
 - Update generators to emit code blocks for new nodes
 - Add tests in `talend2python_framework/tests/`
 
+## MSSQL to ORASS Migration
+
+This project also includes a lightweight framework to copy data from Microsoft SQL Server
+to Oracle (ORASS) without any business transformation. Define connection details and
+table mappings in a YAML file and run the migration with the `db-migrate` CLI.
+
+```bash
+db-migrate path/to/config.yaml
+```
+
+See `talend2python_framework/examples/mssql_to_orass.yaml` for a sample configuration
+file.
+
 ## License
 
 Apache-2.0
