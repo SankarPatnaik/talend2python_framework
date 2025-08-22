@@ -9,3 +9,12 @@ def test_parse_basic_graph():
     assert len(g.edges) == 4
     order = g.topological_order()
     assert order[0].type == "tFileInputDelimited"
+
+
+def test_parse_from_xml_string():
+    xml = EXAMPLE_ITEM.read_text()
+    g = parse_talend_item(xml)
+    assert len(g.nodes) == 5
+    assert len(g.edges) == 4
+    order = g.topological_order()
+    assert order[0].type == "tFileInputDelimited"

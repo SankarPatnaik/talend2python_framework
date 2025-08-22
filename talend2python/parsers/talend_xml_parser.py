@@ -8,14 +8,27 @@ Components become ``Node`` instances and connections between them become
 strings in the ``config`` dictionary.
 """
 
+from pathlib import Path
+from typing import Union
+
 from lxml import etree
-from ..ir.model import Graph, Node, Edge
+
+from ..ir.model import Edge, Graph, Node
 
 
-def parse_talend_item(path: str) -> Graph:
-    """Parse a Talend .item file and return a Graph representation."""
-    tree = etree.parse(path)
-    root = tree.getroot()
+def parse_talend_item(source: Union[str, Path]) -> Graph:
+    """Parse a Talend job definition and return a ``Graph`` representation.
+
+    ``source`` may either be a filesystem path to a ``.item`` file or a raw
+    XML string containing the job definition.  When a path is supplied it must
+    point to an existing file; otherwise the value is treated as XML content.
+    """
+
+    if isinstance(source, (str, Path)) and Path(source).exists():
+        tree = etree.parse(str(source))
+        root = tree.getroot()
+    else:
+        root = etree.fromstring(str(source))
     g = Graph()
 
     # Create nodes
