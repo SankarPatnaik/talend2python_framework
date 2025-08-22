@@ -59,7 +59,7 @@ class Graph:
                 if indeg[e.target] == 0:
                     queue.append(e.target)
         if len(order) != len(self.nodes):
-            raise ValueError("Graph has cycles or is disconnected.")
+            raise ValueError("Graph has cycles")
 
         # Ensure the graph is weakly connected.  The simple topological sort
         # above will happily return an order even if the graph consists of
@@ -84,6 +84,6 @@ class Graph:
                     if n not in seen:
                         q.append(n)
             if len(seen) != len(self.nodes):
-                raise ValueError("Graph has cycles or is disconnected.")
+                raise ValueError("Graph is disconnected")
 
         return order
