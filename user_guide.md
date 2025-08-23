@@ -78,6 +78,8 @@ Runtime components for execution
 | `tMap` | Select, rename, or derive columns via expressions | JSON `mapping` | Templates + runtime class |
 | `tJoin` | Join two DataFrames | `left_on`, `right_on`, `join_type` | Templates + runtime class |
 | `tLogRow` | Log the current DataFrame | n/a | Templates + runtime class |
+| `tAggregateRow` | Group and aggregate rows | `group_by`, `aggregations` | Templates + runtime class |
+| `tExtractDelimitedFields` | Split a column into new columns | `column`, `separator`, `new_columns` | Templates + runtime class |
 | `tFileOutputDelimited` | Write DataFrame to CSV | `file_path`, `separator`, `header` | Templates + runtime class |
 
 ### Database Components
