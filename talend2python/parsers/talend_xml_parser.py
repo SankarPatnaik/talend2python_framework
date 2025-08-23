@@ -22,6 +22,14 @@ _KEY_MAP = {
     "FILENAME": "file_path",
     "FIELDSEPARATOR": "separator",
     "HEADER": "header",
+    # Additional parameters for extended component coverage
+    "SHEET": "sheet",
+    "GROUP_BY": "group_by",
+    "AGGREGATIONS": "aggregations",
+    "COLUMN": "column",
+    "NEW_COLUMNS": "new_columns",
+    "NUM_ROWS": "num_rows",
+    "SCHEMA": "schema",
 }
 
 

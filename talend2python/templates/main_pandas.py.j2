@@ -19,11 +19,19 @@ def main():
     last_df = None
     {% for s in steps %}
     # Node: {{s.name}} ({{s.type}})
-    {% if s.type == "tFileInputDelimited" %}
+{% if s.type == "tFileInputDelimited" %}
     path = args.input_csv or "{{ s.config.get("file_path", "") }}"
     sep = "{{ s.config.get("separator", ",") }}"
     header = "{{ s.config.get("header", "true") }}".lower() == "true"
     df = pd.read_csv(path, sep=sep, header=0 if header else None)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tFileInputExcel" %}
+    # Read an Excel sheet into a DataFrame
+    path = args.input_csv or "{{ s.config.get("file_path", "") }}"
+    sheet = "{{ s.config.get("sheet", 0) }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    df = pd.read_excel(path, sheet_name=sheet, header=0 if header else None)
     df_map["{{s.id}}"] = df
     last_df = df
     {% elif s.type == "tFilterRow" %}
@@ -60,6 +68,22 @@ def main():
     df = left_df.merge(right_df, how=join_type, left_on=left_on, right_on=right_on)
     df_map["{{s.id}}"] = df
     last_df = df
+    {% elif s.type == "tExtractDelimitedFields" %}
+    # Split a delimited column into multiple new columns
+    column = "{{ s.config.get("column", "") }}"
+    sep = "{{ s.config.get("separator", ",") }}"
+    new_cols = json.loads('{{ s.config.get("new_columns", "[]") }}')
+    parts = last_df[column].str.split(sep, expand=True)
+    for i, col_name in enumerate(new_cols):
+        last_df[col_name] = parts[i]
+    df_map["{{s.id}}"] = last_df
+    {% elif s.type == "tAggregateRow" %}
+    # Aggregate rows based on group_by and aggregation mappings
+    group_by = json.loads('{{ s.config.get("group_by", "[]") }}')
+    aggregations = json.loads('{{ s.config.get("aggregations", "{}") }}')
+    df = last_df.groupby(group_by).agg(aggregations).reset_index()
+    df_map["{{s.id}}"] = df
+    last_df = df
     {% elif s.type == "tLogRow" %}
     # Print the first few rows of the current DataFrame.  to_string() is used
     # to avoid truncation of wide columns.
@@ -72,6 +96,13 @@ def main():
     sep = "{{ s.config.get("separator", ",") }}"
     header = "{{ s.config.get("header", "true") }}".lower() == "true"
     last_df.to_csv(out_path, index=False, sep=sep, header=header)
+    df_map["{{s.id}}"] = last_df
+    {% elif s.type == "tFileOutputExcel" %}
+    # Write the DataFrame to an Excel file
+    out_path = args.output_csv or "{{ s.config.get("file_path", "output.xlsx") }}"
+    sheet = "{{ s.config.get("sheet", "Sheet1") }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    last_df.to_excel(out_path, index=False, sheet_name=sheet, header=header)
     df_map["{{s.id}}"] = last_df
     {% else %}
     # For components that don't perform any transformation (or are not yet

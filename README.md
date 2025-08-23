@@ -7,10 +7,15 @@ A **workable framework** to convert Talend jobs (XML `.item`) into **Python ETL 
 ## Supported (MVP) Talend components
 
 - `tFileInputDelimited` (CSV read)
+- `tFileInputExcel` (Excel sheet read)
 - `tFilterRow` (row-level filter expressions)
 - `tMap` (select/rename/derive columns – basic expressions)
+- `tExtractDelimitedFields` (split a column into multiple columns)
+- `tAggregateRow` (group and aggregate data)
+- `tJoin` (join two flows)
 - `tLogRow` (debug sink)
 - `tFileOutputDelimited` (CSV write)
+- `tFileOutputExcel` (Excel write)
 
 You can add more components by extending `mapping/component_map.yaml` and generator templates.
 

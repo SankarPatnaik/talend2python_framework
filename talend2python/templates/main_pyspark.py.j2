@@ -1,7 +1,8 @@
 import argparse
 import json
+import pandas as pd
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import expr, col
+from pyspark.sql.functions import expr, col, split
 
 
 def parse_args():
@@ -20,11 +21,20 @@ def main():
     last_df = None
     {% for s in steps %}
     # Node: {{s.name}} ({{s.type}})
-    {% if s.type == "tFileInputDelimited" %}
+{% if s.type == "tFileInputDelimited" %}
     path = args.input_csv or "{{ s.config.get("file_path", "") }}"
     header = "{{ s.config.get("header", "true") }}".lower() == "true"
     sep = "{{ s.config.get("separator", ",") }}"
     df = spark.read.option("header", header).option("inferSchema", True).option("sep", sep).csv(path)
+    df_map["{{s.id}}"] = df
+    last_df = df
+    {% elif s.type == "tFileInputExcel" %}
+    # Load an Excel sheet using pandas then convert to Spark DataFrame
+    path = args.input_csv or "{{ s.config.get("file_path", "") }}"
+    sheet = "{{ s.config.get("sheet", 0) }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    pdf = pd.read_excel(path, sheet_name=sheet, header=0 if header else None)
+    df = spark.createDataFrame(pdf)
     df_map["{{s.id}}"] = df
     last_df = df
     {% elif s.type == "tFilterRow" %}
@@ -56,6 +66,22 @@ def main():
     df = left_df.join(right_df, left_df[left_on] == right_df[right_on], how=join_type)
     df_map["{{s.id}}"] = df
     last_df = df
+    {% elif s.type == "tExtractDelimitedFields" %}
+    # Split a delimited string column into multiple columns using Spark split
+    column = "{{ s.config.get("column", "") }}"
+    sep = "{{ s.config.get("separator", ",") }}"
+    new_cols = json.loads('{{ s.config.get("new_columns", "[]") }}')
+    split_col = split(last_df[column], sep)
+    for idx, name in enumerate(new_cols):
+        last_df = last_df.withColumn(name, split_col.getItem(idx))
+    df_map["{{s.id}}"] = last_df
+    {% elif s.type == "tAggregateRow" %}
+    # Group and aggregate rows
+    group_by = json.loads('{{ s.config.get("group_by", "[]") }}')
+    aggregations = json.loads('{{ s.config.get("aggregations", "{}") }}')
+    df = last_df.groupBy(*[col(c) for c in group_by]).agg(aggregations)
+    df_map["{{s.id}}"] = df
+    last_df = df
     {% elif s.type == "tLogRow" %}
     last_df.show(10, truncate=False)
     df_map["{{s.id}}"] = last_df
@@ -64,6 +90,13 @@ def main():
     header = "{{ s.config.get("header", "true") }}".lower() == "true"
     sep = "{{ s.config.get("separator", ",") }}"
     last_df.coalesce(1).write.mode("overwrite").option("header", header).option("sep", sep).csv(out_path)
+    df_map["{{s.id}}"] = last_df
+    {% elif s.type == "tFileOutputExcel" %}
+    # Write to Excel via pandas
+    out_path = args.output_csv or "{{ s.config.get("file_path", "output.xlsx") }}"
+    sheet = "{{ s.config.get("sheet", "Sheet1") }}"
+    header = "{{ s.config.get("header", "true") }}".lower() == "true"
+    last_df.toPandas().to_excel(out_path, index=False, sheet_name=sheet, header=header)
     df_map["{{s.id}}"] = last_df
     {% else %}
     df_map["{{s.id}}"] = last_df
