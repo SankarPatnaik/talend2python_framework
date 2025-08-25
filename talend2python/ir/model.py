@@ -3,14 +3,15 @@ Intermediate representation models for Talend components.
 
 This module defines simple data structures used to represent Talend jobs as a
 directed acyclic graph (DAG).  Each component in a job is represented as a
-``Node`` with an id, type, name and arbitrary configuration.  Data flows
-between components are encoded as ``Edge`` instances connecting source and
-target nodes.  The ``Graph`` class provides a ``topological_order`` method
-which returns the nodes sorted according to their dependencies.  This is
-crucial for generating code in the correct order.  Nodes also expose ``inputs``
-and ``outputs`` lists which are automatically populated from the graph's edges,
-allowing multi‑layer Talend jobs (e.g. filter → aggregate → join) to be
-represented without additional manual wiring.
+``Node`` with an id, type, name and arbitrary configuration.  Connections
+between components are encoded as ``Edge`` instances linking source and target
+nodes.  ``Edge`` objects also capture the Talend ``connector`` type (e.g.
+``FLOW``/``REJECT``), allowing the framework to preserve flow‑control semantics
+such as "on component ok" without additional coding.  The ``Graph`` class
+provides a ``topological_order`` method which returns the nodes sorted according
+to their dependencies.  Nodes expose ``inputs`` and ``outputs`` lists which are
+automatically populated from the graph's edges, allowing multi‑layer Talend jobs
+to be represented without extra wiring.
 """
 
 from dataclasses import dataclass, field
@@ -29,8 +30,16 @@ class Node:
 
 @dataclass
 class Edge:
+    """Connection between two nodes.
+
+    The ``connector`` attribute stores the Talend connector type (e.g. ``FLOW``,
+    ``FILTER``, ``REJECT``).  It defaults to ``"FLOW"`` so existing tests and
+    simple jobs that omit an explicit connector continue to work unchanged.
+    """
+
     source: str
     target: str
+    connector: str = "FLOW"
 
 
 @dataclass
