@@ -21,6 +21,11 @@ tJoin:
         left_on_key: "left_on"
         right_on_key: "right_on"
         join_type_key: "join_type"
+TAggregateRow:
+      action: aggregate
+      params:
+        group_by_key: "group_by"
+        aggregations_key: "aggregations"
 tLogRow:
       action: log
 tFileOutputDelimited:

@@ -43,22 +43,21 @@ def generate(graph, out_dir):
     )
     main_tpl = env.get_template("main_pandas.py.j2")
 
-    # Collect node information along with input dependencies.  The IR graph
-    # exposes a list of edges, where each edge has a ``source`` and ``target``
-    # attribute.  For each node we look up all incoming edges to determine
-    # which other dataframes should be available when rendering code for that
-    # node.  Nodes with no inputs (e.g. file inputs) will have an empty list.
+    # Collect node information along with input dependencies.  The call to
+    # ``topological_order`` populates each node's ``inputs`` list based on the
+    # graph's edges, so multi‑input components (e.g. tJoin) are handled
+    # automatically.  Nodes with no inputs (e.g. file inputs) will have an
+    # empty list.
     steps = []
     for node in graph.topological_order(require_connected=False):
         cfg = node.config or {}
-        inputs = [edge.source for edge in graph.edges if edge.target == node.id]
         steps.append(
             {
                 "id": node.id,
                 "type": node.type,
                 "name": node.name,
                 "config": cfg,
-                "inputs": inputs,
+                "inputs": list(node.inputs),
             }
         )
 

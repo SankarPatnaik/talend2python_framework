@@ -39,20 +39,19 @@ def generate(graph, out_dir):
     )
     main_tpl = env.get_template("main_pyspark.py.j2")
 
-    # Build the steps list with input dependencies.  This mirrors the
-    # implementation in the pandas generator but returns a PySpark specific
-    # template.
+    # Build the steps list with input dependencies.  As in the pandas generator
+    # ``topological_order`` fills each node's ``inputs`` list, providing
+    # upstream node ids for multi‑input components.
     steps = []
     for node in graph.topological_order(require_connected=False):
         cfg = node.config or {}
-        inputs = [edge.source for edge in graph.edges if edge.target == node.id]
         steps.append(
             {
                 "id": node.id,
                 "type": node.type,
                 "name": node.name,
                 "config": cfg,
-                "inputs": inputs,
+                "inputs": list(node.inputs),
             }
         )
 
