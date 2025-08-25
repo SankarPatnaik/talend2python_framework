@@ -132,16 +132,20 @@ def parse_talend_item(source: Union[str, Path]) -> Graph:
     # Map component display names to their ids for resolving connections
     name_to_id = {n.name: n.id for n in g.nodes.values()}
 
-    # Create edges, resolving names to ids when necessary
+    # Create edges, resolving names to ids when necessary.  Preserve the Talend
+    # connector name (e.g. FLOW, FILTER, REJECT) so downstream code can
+    # differentiate between normal data flow and control links such as
+    # COMPONENT_OK or RUN_IF.
     for conn in root.findall(".//connection"):
         src = conn.get("source")
         tgt = conn.get("target")
+        connector = conn.get("connectorName", "FLOW")
         src_id = src if src in g.nodes else name_to_id.get(src)
         tgt_id = tgt if tgt in g.nodes else name_to_id.get(tgt)
         if src_id is None or tgt_id is None:
             raise ValueError(
                 f"Connection references unknown nodes: {src!r} -> {tgt!r}"
             )
-        g.edges.append(Edge(source=src_id, target=tgt_id))
+        g.edges.append(Edge(source=src_id, target=tgt_id, connector=connector))
 
     return g
