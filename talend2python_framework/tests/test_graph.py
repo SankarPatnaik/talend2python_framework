@@ -41,3 +41,23 @@ def test_topological_order_cycle():
     )
     with pytest.raises(ValueError, match="Graph has cycles"):
         g.topological_order()
+
+
+def test_inputs_outputs_populated():
+    g = Graph(
+        nodes={
+            "s1": Node(id="s1", type="src", name="S1"),
+            "s2": Node(id="s2", type="src", name="S2"),
+            "j": Node(id="j", type="join", name="Join"),
+            "t": Node(id="t", type="tgt", name="T"),
+        },
+        edges=[
+            Edge(source="s1", target="j"),
+            Edge(source="s2", target="j"),
+            Edge(source="j", target="t"),
+        ],
+    )
+    g.topological_order()
+    assert g.nodes["j"].inputs == ["s1", "s2"]
+    assert g.nodes["s1"].outputs == ["j"]
+    assert g.nodes["t"].inputs == ["j"]

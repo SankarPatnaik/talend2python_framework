@@ -7,7 +7,10 @@ directed acyclic graph (DAG).  Each component in a job is represented as a
 between components are encoded as ``Edge`` instances connecting source and
 target nodes.  The ``Graph`` class provides a ``topological_order`` method
 which returns the nodes sorted according to their dependencies.  This is
-crucial for generating code in the correct order.
+crucial for generating code in the correct order.  Nodes also expose ``inputs``
+and ``outputs`` lists which are automatically populated from the graph's edges,
+allowing multi‑layer Talend jobs (e.g. filter → aggregate → join) to be
+represented without additional manual wiring.
 """
 
 from dataclasses import dataclass, field
@@ -20,6 +23,8 @@ class Node:
     type: str
     name: str
     config: Dict[str, Any] = field(default_factory=dict)
+    inputs: List[str] = field(default_factory=list)
+    outputs: List[str] = field(default_factory=list)
 
 
 @dataclass
@@ -32,6 +37,35 @@ class Edge:
 class Graph:
     nodes: Dict[str, Node] = field(default_factory=dict)
     edges: List[Edge] = field(default_factory=list)
+
+    def add_node(self, node: Node) -> None:
+        """Add ``node`` to the graph."""
+        self.nodes[node.id] = node
+
+    def add_edge(self, edge: Edge) -> None:
+        """Add ``edge`` and update input/output lists on the connected nodes."""
+        if edge.source not in self.nodes or edge.target not in self.nodes:
+            raise ValueError(
+                f"Edge references unknown node: {edge.source!r} -> {edge.target!r}"
+            )
+        self.edges.append(edge)
+        self.nodes[edge.target].inputs.append(edge.source)
+        self.nodes[edge.source].outputs.append(edge.target)
+
+    def _rebuild_links(self) -> None:
+        """Recompute ``inputs`` and ``outputs`` lists from the current edges.
+
+        This is useful when edges are appended directly to ``self.edges``
+        instead of using :meth:`add_edge`, such as in tests or older code.
+        """
+        for n in self.nodes.values():
+            n.inputs.clear()
+            n.outputs.clear()
+        for e in self.edges:
+            if e.target in self.nodes:
+                self.nodes[e.target].inputs.append(e.source)
+            if e.source in self.nodes:
+                self.nodes[e.source].outputs.append(e.target)
 
     def topological_order(self, require_connected: bool = True) -> List[Node]:
         """Return nodes in a topological order.
@@ -50,6 +84,11 @@ class Graph:
         raised.  When ``require_connected`` is ``True`` an additional
         breadth‑first search ensures that all nodes are reachable.
         """
+        # Ensure ``inputs``/``outputs`` lists reflect current edges before
+        # performing the sort.  This keeps ``Node`` information in sync even
+        # when edges are manipulated directly.
+        self._rebuild_links()
+
         indeg = {n: 0 for n in self.nodes}
         for e in self.edges:
             if e.source not in indeg or e.target not in indeg:
