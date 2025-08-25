@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Union
 
 from lxml import etree
+import yaml
 
 from ..ir.model import Edge, Graph, Node
 
@@ -31,6 +32,34 @@ _KEY_MAP = {
     "NUM_ROWS": "num_rows",
     "SCHEMA": "schema",
 }
+
+
+def _load_component_key_map() -> None:
+    """Extend ``_KEY_MAP`` with parameter names from ``component_map.yaml``.
+
+    The YAML mapping defines the public configuration key for each Talend
+    parameter.  To make new parameters automatically available in
+    :class:`Node` objects, this function reads the mapping file and adds a
+    fallback entry mapping the upper-case parameter name to the desired key.
+    Existing explicit mappings are left untouched.
+    """
+
+    mapping_path = (
+        Path(__file__).resolve().parent.parent / "mapping" / "component_map.yaml"
+    )
+    try:
+        data = yaml.safe_load(mapping_path.read_text())
+    except FileNotFoundError:
+        return
+
+    for comp in data.values():
+        for _, key in comp.get("params", {}).items():
+            # Only add if not explicitly mapped already
+            _KEY_MAP.setdefault(key.upper(), key)
+
+
+# Populate the key map on import so the parser picks up new parameters
+_load_component_key_map()
 
 
 def parse_talend_item(source: Union[str, Path]) -> Graph:
