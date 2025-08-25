@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, make_dataclass
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
@@ -8,6 +8,37 @@ import pandas as pd
 import zipfile
 import tarfile
 import time
+import yaml
+
+
+def register_components_from_yaml() -> None:
+    """Dynamically create simple dataclasses for components defined in YAML.
+
+    ``mapping/component_map.yaml`` enumerates supported components along with
+    the configuration keys they expect.  To reduce manual boilerplate when new
+    components are added, this function reads the mapping file and generates a
+    minimal dataclass for any component not already present in this module.  A
+    placeholder ``run`` method is provided so instances can be created without
+    immediately implementing behaviour.
+    """
+
+    mapping_path = Path(__file__).resolve().parent.parent / "mapping" / "component_map.yaml"
+    try:
+        data = yaml.safe_load(mapping_path.read_text())
+    except FileNotFoundError:
+        return
+
+    for comp_name, info in data.items():
+        if comp_name in globals():
+            continue
+        params = info.get("params", {})
+        fields = [(v, Optional[Any], field(default=None)) for v in params.values()]
+
+        def run(self, *args, **kwargs):  # pragma: no cover - dynamic placeholder
+            raise NotImplementedError(f"No runtime behaviour defined for {comp_name}")
+
+        cls = make_dataclass(comp_name, fields, namespace={"run": run})
+        globals()[comp_name] = cls
 
 
 @dataclass
@@ -637,3 +668,7 @@ class TGoogleDriveDownload:
             done = False
             while not done:
                 _, done = downloader.next_chunk()
+
+
+# Register dynamically generated components after explicit definitions
+register_components_from_yaml()
