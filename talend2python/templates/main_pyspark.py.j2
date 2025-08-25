@@ -3,6 +3,8 @@ import json
 import pandas as pd
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import expr, col, split
+from talend2python.runtime.utils import handle_component_error
+from talend2python.runtime.routines import registry
 
 
 def parse_args():
@@ -19,88 +21,92 @@ def main():
     spark = SparkSession.builder.appName("talend2python").getOrCreate()
     df_map = {}
     last_df = None
+    globals().update(registry)
     {% for s in steps %}
     # Node: {{s.name}} ({{s.type}})
+    try:
 {% if s.type == "tFileInputDelimited" %}
-    path = args.input_csv or "{{ s.config.get("file_path", "") }}"
-    header = "{{ s.config.get("header", "true") }}".lower() == "true"
-    sep = "{{ s.config.get("separator", ",") }}"
-    df = spark.read.option("header", header).option("inferSchema", True).option("sep", sep).csv(path)
-    df_map["{{s.id}}"] = df
-    last_df = df
+        path = args.input_csv or "{{ s.config.get("file_path", "") }}"
+        header = "{{ s.config.get("header", "true") }}".lower() == "true"
+        sep = "{{ s.config.get("separator", ",") }}"
+        df = spark.read.option("header", header).option("inferSchema", True).option("sep", sep).csv(path)
+        df_map["{{s.id}}"] = df
+        last_df = df
     {% elif s.type == "tFileInputExcel" %}
-    # Load an Excel sheet using pandas then convert to Spark DataFrame
-    path = args.input_csv or "{{ s.config.get("file_path", "") }}"
-    sheet = "{{ s.config.get("sheet", 0) }}"
-    header = "{{ s.config.get("header", "true") }}".lower() == "true"
-    pdf = pd.read_excel(path, sheet_name=sheet, header=0 if header else None)
-    df = spark.createDataFrame(pdf)
-    df_map["{{s.id}}"] = df
-    last_df = df
+        # Load an Excel sheet using pandas then convert to Spark DataFrame
+        path = args.input_csv or "{{ s.config.get("file_path", "") }}"
+        sheet = "{{ s.config.get("sheet", 0) }}"
+        header = "{{ s.config.get("header", "true") }}".lower() == "true"
+        pdf = pd.read_excel(path, sheet_name=sheet, header=0 if header else None)
+        df = spark.createDataFrame(pdf)
+        df_map["{{s.id}}"] = df
+        last_df = df
     {% elif s.type == "tFilterRow" %}
-    expr_str = '{{ s.config.get("filter_expr", "true") }}'
-    df = last_df.filter(expr(expr_str))
-    df_map["{{s.id}}"] = df
-    last_df = df
+        expr_str = '{{ s.config.get("filter_expr", "true") }}'
+        df = last_df.filter(expr(expr_str))
+        df_map["{{s.id}}"] = df
+        last_df = df
     {% elif s.type == "tMap" %}
-    mapping = json.loads('{{ s.config.get("mapping", "{}") }}')
-    selects = []
-    for new_col, expr_str in mapping.items():
-        if expr_str in ["__keep__", "__copy__"]:
-            selects.append(col(new_col))
-        else:
-            # Use Spark SQL expr to evaluate the expression string.  This allows
-            # column arithmetic and function calls recognized by Spark.
-            selects.append(expr(expr_str).alias(new_col))
-    df = last_df.select(*selects)
-    df_map["{{s.id}}"] = df
-    last_df = df
+        mapping = json.loads('{{ s.config.get("mapping", "{}") }}')
+        selects = []
+        for new_col, expr_str in mapping.items():
+            if expr_str in ["__keep__", "__copy__"]:
+                selects.append(col(new_col))
+            else:
+                # Use Spark SQL expr to evaluate the expression string.  This allows
+                # column arithmetic and function calls recognized by Spark.
+                selects.append(expr(expr_str).alias(new_col))
+        df = last_df.select(*selects)
+        df_map["{{s.id}}"] = df
+        last_df = df
     {% elif s.type == "tJoin" %}
-    # Join two upstream DataFrames using Spark's join API.  The join type
-    # defaults to inner if not specified.
-    left_df = df_map["{{ s.inputs[0] }}"]
-    right_df = df_map["{{ s.inputs[1] }}"]
-    left_on = "{{ s.config.get("left_on", "") }}"
-    right_on = "{{ s.config.get("right_on", "") }}"
-    join_type = "{{ s.config.get("join_type", "inner") }}"
-    df = left_df.join(right_df, left_df[left_on] == right_df[right_on], how=join_type)
-    df_map["{{s.id}}"] = df
-    last_df = df
+        # Join two upstream DataFrames using Spark's join API.  The join type
+        # defaults to inner if not specified.
+        left_df = df_map["{{ s.inputs[0] }}"]
+        right_df = df_map["{{ s.inputs[1] }}"]
+        left_on = "{{ s.config.get("left_on", "") }}"
+        right_on = "{{ s.config.get("right_on", "") }}"
+        join_type = "{{ s.config.get("join_type", "inner") }}"
+        df = left_df.join(right_df, left_df[left_on] == right_df[right_on], how=join_type)
+        df_map["{{s.id}}"] = df
+        last_df = df
     {% elif s.type == "tExtractDelimitedFields" %}
-    # Split a delimited string column into multiple columns using Spark split
-    column = "{{ s.config.get("column", "") }}"
-    sep = "{{ s.config.get("separator", ",") }}"
-    new_cols = json.loads('{{ s.config.get("new_columns", "[]") }}')
-    split_col = split(last_df[column], sep)
-    for idx, name in enumerate(new_cols):
-        last_df = last_df.withColumn(name, split_col.getItem(idx))
-    df_map["{{s.id}}"] = last_df
+        # Split a delimited string column into multiple columns using Spark split
+        column = "{{ s.config.get("column", "") }}"
+        sep = "{{ s.config.get("separator", ",") }}"
+        new_cols = json.loads('{{ s.config.get("new_columns", "[]") }}')
+        split_col = split(last_df[column], sep)
+        for idx, name in enumerate(new_cols):
+            last_df = last_df.withColumn(name, split_col.getItem(idx))
+        df_map["{{s.id}}"] = last_df
     {% elif s.type == "tAggregateRow" %}
-    # Group and aggregate rows
-    group_by = json.loads('{{ s.config.get("group_by", "[]") }}')
-    aggregations = json.loads('{{ s.config.get("aggregations", "{}") }}')
-    df = last_df.groupBy(*[col(c) for c in group_by]).agg(aggregations)
-    df_map["{{s.id}}"] = df
-    last_df = df
+        # Group and aggregate rows
+        group_by = json.loads('{{ s.config.get("group_by", "[]") }}')
+        aggregations = json.loads('{{ s.config.get("aggregations", "{}") }}')
+        df = last_df.groupBy(*[col(c) for c in group_by]).agg(aggregations)
+        df_map["{{s.id}}"] = df
+        last_df = df
     {% elif s.type == "tLogRow" %}
-    last_df.show(10, truncate=False)
-    df_map["{{s.id}}"] = last_df
+        last_df.show(10, truncate=False)
+        df_map["{{s.id}}"] = last_df
     {% elif s.type == "tFileOutputDelimited" %}
-    out_path = args.output_csv or "{{ s.config.get("file_path", "output.csv") }}"
-    header = "{{ s.config.get("header", "true") }}".lower() == "true"
-    sep = "{{ s.config.get("separator", ",") }}"
-    last_df.coalesce(1).write.mode("overwrite").option("header", header).option("sep", sep).csv(out_path)
-    df_map["{{s.id}}"] = last_df
+        out_path = args.output_csv or "{{ s.config.get("file_path", "output.csv") }}"
+        header = "{{ s.config.get("header", "true") }}".lower() == "true"
+        sep = "{{ s.config.get("separator", ",") }}"
+        last_df.coalesce(1).write.mode("overwrite").option("header", header).option("sep", sep).csv(out_path)
+        df_map["{{s.id}}"] = last_df
     {% elif s.type == "tFileOutputExcel" %}
-    # Write to Excel via pandas
-    out_path = args.output_csv or "{{ s.config.get("file_path", "output.xlsx") }}"
-    sheet = "{{ s.config.get("sheet", "Sheet1") }}"
-    header = "{{ s.config.get("header", "true") }}".lower() == "true"
-    last_df.toPandas().to_excel(out_path, index=False, sheet_name=sheet, header=header)
-    df_map["{{s.id}}"] = last_df
+        # Write to Excel via pandas
+        out_path = args.output_csv or "{{ s.config.get("file_path", "output.xlsx") }}"
+        sheet = "{{ s.config.get("sheet", "Sheet1") }}"
+        header = "{{ s.config.get("header", "true") }}".lower() == "true"
+        last_df.toPandas().to_excel(out_path, index=False, sheet_name=sheet, header=header)
+        df_map["{{s.id}}"] = last_df
     {% else %}
-    df_map["{{s.id}}"] = last_df
+        df_map["{{s.id}}"] = last_df
     {% endif %}
+    except Exception as exc:
+        handle_component_error("{{s.name}}", exc)
     {% endfor %}
     spark.stop()
 

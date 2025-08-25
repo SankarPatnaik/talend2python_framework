@@ -46,6 +46,7 @@ class Edge:
 class Graph:
     nodes: Dict[str, Node] = field(default_factory=dict)
     edges: List[Edge] = field(default_factory=list)
+    routines: List[str] = field(default_factory=list)
 
     def add_node(self, node: Node) -> None:
         """Add ``node`` to the graph."""

@@ -148,4 +148,12 @@ def parse_talend_item(source: Union[str, Path]) -> Graph:
             )
         g.edges.append(Edge(source=src_id, target=tgt_id, connector=connector))
 
+    # Collect any declared routines so they can be made available during code
+    # generation.  Routines are stored by name only; the actual implementation
+    # is expected to be provided separately in Python modules.
+    for r in root.findall(".//routinesParameter"):
+        name = r.get("name")
+        if name:
+            g.routines.append(name)
+
     return g
